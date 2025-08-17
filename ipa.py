@@ -195,7 +195,10 @@ def german_to_ipa(german: str) -> str:
 
         ipa = ipa.replace("eʁd", "eɐd")
         ipa = ipa.replace("YRd", "eɐd")
+        ipa = ipa.replace("ɛʁst", "ɛɐst")
+        ipa = ipa.replace("eʁst", "eɐst")
         ipa = ipa.replace("eʁt", "eɐt")
+        ipa = ipa.replace("YRst", "eɐst")
         ipa = ipa.replace("YRt", "eɐt")
         ipa = ipa.replace("r", "ʁ")
         ipa = ipa.replace("ɾh", "ɐh")
