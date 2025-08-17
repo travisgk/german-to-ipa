@@ -6,7 +6,7 @@ Description: This script wraps around the eSpeak function's output
              and improves the IPA output from the German language option.
 
 Author: TravisGK
-Date: 2025 August 16
+Date: 2025 August 17
 
 pip install phonemizer regex espeakng
 
@@ -90,6 +90,10 @@ def break_word_by_r(word: str) -> list:
 
 def german_to_ipa(german: str) -> str:
     # R and Y are placeholders.
+    REMOVE_EXCESSIVE_STRESSES = True
+    COLLAPSE_SCHWAS = True  # IPA wise: Rasen -> Ras'n
+    MOVE_STRESSES_BEFORE_CONSONANTS = True
+
     CONSONANTS = "Rbxçdfɡjkll̩mm̩nn̩ŋpzsʃtvʔʒ"
     VOWELS = "Yaɛeɪiɔoœøʊuʏyə"
     MAYBE_LONG_IPA = "Yaɛ"
@@ -203,6 +207,7 @@ def german_to_ipa(german: str) -> str:
         ipa = ipa.replace("r", "ʁ")
         ipa = ipa.replace("ɾh", "ɐh")
         ipa = ipa.replace("YR", "ɛʁ")
+        ipa = ipa.replace("ɾ", "ʁ")  # defaults
 
         pattern = rf"(ɔɪʁ)(?=[{CONSONANTS}])"
         ipa = re.sub(pattern, "ɔɪɐ", ipa)
@@ -234,6 +239,55 @@ def german_to_ipa(german: str) -> str:
             if last_i < len(ipa):
                 parts.append(ipa[last_i:])
             ipa = "".join(parts)
+
+        # Starting patterns. (term/replacement)
+        terms = [
+            ("aʊfɛʁ", "aʊfʔɛɐ"),
+            ("apɛʁ", "aːbɐ"),
+            ("anɛʁ", "anʔɛɐ"),
+            ("aneːɐ", "anʔɛɐ"),
+            ("ʊnɛʁ", "ʊnʔɛɐ"),
+            ("aʊsɛʁ", "aʊsʔɛɐ"),
+            ("mɪtɛʁ", "mɪtʔɛɐ"),
+            ("foːʁɛʁ", "foːɐʔɛɐ"),
+            ("ɛʁoːb", "ɛɐʔoːb"),
+            ("bəaɪ", "bəʔaɪ"),
+        ]
+        for term, replacement in terms:
+            if ipa.startswith(term):
+                ipa = replacement + ipa[len(term) :]
+
+        def replace_start(
+            txt: str,
+            term: str,
+            replacement: str,
+            next_chars: list,
+        ) -> str:
+            """
+            Returns the `txt with the `term` replaced with the `replacement`,
+            but the original `term` is only replaced
+            if the following char in the `txt` is in the given `next_chars`.
+            """
+            if (
+                len(txt) > len(term)
+                and txt.startswith(term)
+                and txt[len(term)] in next_chars
+            ):
+                txt = replacement + txt[len(term) :]
+            return txt
+
+        ipa = replace_start(ipa, "foːʁ", "foːɐ", next_chars=CONSONANTS + "ʁ")
+        ipa = replace_start(ipa, "ɛmpɔʁ", "ɛmpoːɐ", next_chars=CONSONANTS + "ʁ")
+        ipa = replace_start(ipa, "yːbʁ", "yːbɐ", next_chars=CONSONANTS + "ʁ")
+        ipa = replace_start(ipa, "yːbʁ", "yːbɐʔ", next_chars=VOWELS)
+        ipa = replace_start(ipa, "ʊntʁ", "ʊntɐ", next_chars=CONSONANTS + "ʁ")
+        ipa = replace_start(ipa, "ʊntʁ", "ʊntɐʔ", next_chars=VOWELS)
+
+        if orig.startswith("zer"):
+            if ipa.startswith("tseːɐtiːfi"):
+                ipa = "tsɛʁtifi" + ipa[10:]
+            elif ipa.startswith("tsɛʁ"):
+                ipa = "tsɛɐ" + ipa[4:]
 
         # Put the primary and secondary stresses back.
         primary_indices = []
@@ -295,6 +349,68 @@ def german_to_ipa(german: str) -> str:
 
         for i in sorted(add_secondary_before, reverse=True):
             ipa = ipa[:i] + "ˌ" + ipa[i:]
+
+        if REMOVE_EXCESSIVE_STRESSES:
+            if ipa.startswith("ˌ"):
+                ipa = ipa[1:]
+            if len(add_primary_before) == 1 and len(add_secondary_before) == 0:
+                first_vowel_indices = []
+                in_vowels = False
+                for i, c in enumerate(ipa):
+                    if c in VOWELS:
+                        if not in_vowels:
+                            in_vowels = True
+                            first_vowel_indices.append(i)
+                    else:
+                        in_vowels = False
+
+                if len(first_vowel_indices) > 0:
+                    primary_index = ipa.find("ˈ")
+                    if primary_index == first_vowel_indices[0] - 1:
+                        ipa = ipa[:primary_index] + ipa[primary_index + 1 :]
+
+        if MOVE_STRESSES_BEFORE_CONSONANTS:
+            primary_indices = [i for i, c in enumerate(ipa) if c == "ˈ"]
+            secondary_indices = [i for i, c in enumerate(ipa) if c == "ˌ"]
+            if len(primary_indices) > 0 or len(secondary_indices) > 0:
+                primary_indices.reverse()
+                secondary_indices.reverse()
+
+                def move_indices_back(indices: list) -> list:
+                    results = indices[:]
+                    for i in range(len(results)):
+                        while results[i] > 0 and (
+                            (ipa[results[i]] == "s" and ipa[results[i] - 1] == "t")
+                            or (ipa[results[i]] == "f" and ipa[results[i] - 1] == "p")
+                            or (ipa[results[i]] == "ʒ" and ipa[results[i] - 1] == "d")
+                            or (ipa[results[i]] == "t" and ipa[results[i] - 1] == "ʃ")
+                            or (
+                                ipa[results[i]] not in CONSONANTS + "h"
+                                and ipa[results[i] - 1] in CONSONANTS + "h"
+                            )
+                        ):
+                            results[i] -= 1
+
+                    return sorted(list(set(results)), reverse=True)
+
+                primary_indices_to = move_indices_back(primary_indices)
+                secondary_indices_to = move_indices_back(secondary_indices)
+
+                for start, end in zip(primary_indices, primary_indices_to):
+                    ipa = ipa[:start] + ipa[start + 1 :]
+                    ipa = ipa[:end] + "ˈ" + ipa[end:]
+
+                for start, end in zip(secondary_indices, secondary_indices_to):
+                    ipa = ipa[:start] + ipa[start + 1 :]
+                    ipa = ipa[:end] + "ˌ" + ipa[end:]
+
+                if REMOVE_EXCESSIVE_STRESSES:
+                    if ipa.startswith("ˌ"):
+                        ipa = ipa[1:]
+
+        if COLLAPSE_SCHWAS:
+            pass
+            # təndə  tn̩də
 
         results.append(ipa)
 
