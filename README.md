@@ -10,5 +10,3 @@ This command line script converts German next into the International Phonetic Al
 
 Prints:
 ```ɪn deːɐ bəʃʁˈɛnkʊŋ tsˈaɪkt zɪç ˈeːɐst deːɐ mˈaɪstɐ.```
-
-The quotes around the input are optional.
