@@ -384,9 +384,10 @@ def german_to_ipa(german: str) -> str:
                             or (ipa[results[i]] == "f" and ipa[results[i] - 1] == "p")
                             or (ipa[results[i]] == "ʒ" and ipa[results[i] - 1] == "d")
                             or (ipa[results[i]] == "t" and ipa[results[i] - 1] == "ʃ")
+                            or (ipa[results[i]] == "ʁ" and ipa[results[i] - 1] == "ʃ")
                             or (
                                 ipa[results[i]] not in CONSONANTS + "h"
-                                and ipa[results[i] - 1] in CONSONANTS + "h"
+                                and ipa[results[i] - 1] in CONSONANTS + "ʁh"
                             )
                         ):
                             results[i] -= 1
@@ -405,7 +406,11 @@ def german_to_ipa(german: str) -> str:
                     ipa = ipa[:end] + "ˌ" + ipa[end:]
 
                 if REMOVE_EXCESSIVE_STRESSES:
-                    if ipa.startswith("ˌ"):
+                    if ipa.startswith("ˌ") or (
+                        len(primary_indices_to) == 1
+                        and len(secondary_indices_to) == 0
+                        and ipa.startswith("ˈ")
+                    ):
                         ipa = ipa[1:]
 
         if COLLAPSE_SCHWAS:
