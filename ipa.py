@@ -207,6 +207,12 @@ def german_to_ipa(german: str) -> str:
         pattern = rf"(ɔɪʁ)(?=[{CONSONANTS}])"
         ipa = re.sub(pattern, "ɔɪɐ", ipa)
 
+        pattern = rf"(lɔs)(?=[dfgjklmnpqrvxzçl̩m̩n̩ʃʔ])"
+        ipa = re.sub(pattern, "los", ipa)
+
+        ipa = ipa.replace("lɔstsu", "lostsu")
+        ipa = ipa.replace("vɐdən", "veɐdən")
+
         # Put the long vowel char back.
         for char in ALWAYS_LONG_IPA:
             ipa = ipa.replace(char, f"{char}ː")
