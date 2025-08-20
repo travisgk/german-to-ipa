@@ -6,7 +6,7 @@ Description: This script wraps around the eSpeak function's output
              and improves the IPA output from the German language option.
 
 Author: TravisGK
-Date: 2025 August 17
+Date: 2025 August 20
 
 pip install phonemizer regex espeakng
 
@@ -99,7 +99,9 @@ def german_to_ipa(german: str) -> str:
     MOVE_STRESSES_BEFORE_CONSONANTS = True
 
     VOICELESS_SCHWA = ""
+    SILENT_LETTER_L = "ḷ"
     SILENT_LETTER_N = "ṇ"
+    SILENCING_CONSONANTS = "bçdfɡkpsʃtvxz"
     CONSONANTS = "Rbxçdfɡjkll̩mm̩nn̩ŋpzsʃtvʔʒ"
     VOWELS = "Yaɛeɪiɔoœøʊuʏyə"
     MAYBE_LONG_IPA = "Yaɛ"
@@ -143,7 +145,9 @@ def german_to_ipa(german: str) -> str:
 
     results = []
     for orig, ipa in zip(orig_words, ipa_words):
-        orig = remove_punctuation(orig).lower()
+        orig = remove_punctuation(orig)
+        word_is_capitalized = orig[0].isupper()
+        orig = orig.lower()
         ipa = remove_parentheses(ipa)
         ipa = remove_punctuation(ipa)
 
@@ -181,6 +185,12 @@ def german_to_ipa(german: str) -> str:
 
         if ipa.endswith("ʁ"):
             ipa = ipa[:-1] + "ɐ"
+
+        if word_is_capitalized:
+            if orig.endswith("ende") and ipa.endswith("əndə"):
+                ipa = ipa[:-4] + "ʔɛndə"
+            elif orig.endswith("endes") and ipa.endswith("əndəs"):
+                ipa = ipa[:-4] + "ʔɛndəs"
 
         if len(ipa) >= 5:
             if any(ipa.startswith(l) for l in ["fɛʁ", "fYR"]):
@@ -449,11 +459,53 @@ def german_to_ipa(german: str) -> str:
                         ipa = ipa[1:]
 
         if COLLAPSE_SCHWAS:
-            if len(ipa) >= 3:
-                if ipa[-2:] == "ən" and ipa[-3] in "bçdfɡkpsʃtvxz":
-                    ipa = ipa[:-2] + VOICELESS_SCHWA + SILENT_LETTER_N
+            if len(ipa) >= 3 and ipa[-2:] == "ən" and ipa[-3] in SILENCING_CONSONANTS:
+                ipa = ipa[:-2] + VOICELESS_SCHWA + SILENT_LETTER_N
+            elif len(ipa) >= 3 and ipa[-2:] == "əl" and ipa[-3] in SILENCING_CONSONANTS:
+                ipa = ipa[:-2] + VOICELESS_SCHWA + SILENT_LETTER_L
+            elif (
+                len(ipa) >= 4
+                and ipa[-3:-1] == "əl"
+                and ipa[-1] in "nt"
+                and ipa[-4] in SILENCING_CONSONANTS
+            ):
+                ipa = ipa[:-3] + VOICELESS_SCHWA + SILENT_LETTER_L + ipa[-1]
 
-            # təndə  tn̩də
+            if not word_is_capitalized:
+                ENDS = [
+                    "ənt",
+                    "əndə",
+                    "əndɐ",
+                    "əndən",
+                    "əndəs",
+                    "əlnt",
+                    "əlndə",
+                    "əlndɐ",
+                    "əlndən",
+                    "əlndəs",
+                ]
+                for end in ENDS:
+                    if (
+                        len(end) < len(ipa)
+                        and ipa.endswith(end)
+                        and ipa[-len(end) - 1] in SILENCING_CONSONANTS
+                    ):
+                        if end[1] == "l":
+                            ipa = (
+                                ipa[: -len(end)]
+                                + VOICELESS_SCHWA
+                                + SILENT_LETTER_L
+                                + "n"
+                                + end[3:]
+                            )
+                        else:
+                            ipa = (
+                                ipa[: -len(end)]
+                                + VOICELESS_SCHWA
+                                + SILENT_LETTER_N
+                                + end[2:]
+                            )
+                        break
 
         results.append(ipa)
 
