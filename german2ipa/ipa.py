@@ -6,7 +6,7 @@ Description: This script wraps around the eSpeak function's output
              and improves the IPA output from the German language option.
 
 Author: TravisGK
-Date: 2025 August 20
+Date: 2025 August 21
 
 pip install phonemizer regex espeakng
 
@@ -14,7 +14,7 @@ pip install phonemizer regex espeakng
 
 import os
 import regex as re
-from _nums import num_to_german
+from _nums import replace_nums_with_german
 
 if os.name == "nt":  # on Windows.
     # Put this before importing phonemize or before the first phonemize() call
@@ -107,18 +107,8 @@ def german_to_ipa(german: str) -> str:
     MAYBE_LONG_IPA = "Yaɛ"
     ALWAYS_LONG_IPA = "eioøuy"
 
-    words = german.split(" ")
-    for word_i, word in enumerate(words):
-        if word[0].isdigit():
-            last_digit_i = len(word) - 1
-            for i in range(len(word) - 1, -1, -1):
-                if word[i].isdigit():
-                    last_digit_i = i
-                    break
-            num_str = word[0 : last_digit_i + 1]
-            german = num_to_german(int(num_str))
-            words[word_i] = german + word[last_digit_i + 1 :]
-    german = " ".join(words)
+    # Convert any numbers into German words.
+    german = replace_nums_with_german(german)
 
     ipa = phonemize(
         german,
@@ -148,16 +138,26 @@ def german_to_ipa(german: str) -> str:
         orig = remove_punctuation(orig)
         word_is_capitalized = orig[0].isupper()
         orig = orig.lower()
+
+        if orig == "deren":
+            results.append("deːʁən")
+            continue  # to next word.
+        elif orig == "hing":
+            results.append("hɪŋ")
+            continue  # to next word.
+
         ipa = remove_parentheses(ipa)
         ipa = remove_punctuation(ipa)
 
         old_ipa = ipa
 
+        # Append the index of every vowel char that *could* be long.
         maybe_is_long = []
         for i, c in enumerate(ipa):
             if c in MAYBE_LONG_IPA:
                 maybe_is_long.append(i < len(ipa) - 1 and ipa[i + 1] == "ː")
 
+        # Remove stress markers and add a placeholder for a common IPA pattern.
         terms = [("ɛɾ", "YR"), ("ː", ""), ("ˈ", ""), ("ˌ", "")]
         for term, replacement in terms:
             ipa = ipa.replace(term, replacement)
@@ -168,6 +168,7 @@ def german_to_ipa(german: str) -> str:
         if len(orig) == 0:
             continue
 
+        # Do baseline replacements.
         if ipa.endswith("ɾ"):
             ipa = ipa[:-1] + "ɐ"
 
@@ -198,6 +199,7 @@ def german_to_ipa(german: str) -> str:
             elif any(ipa.startswith(l) for l in ["ɛʁ", "YR"]):
                 ipa = "ɛɐ" + ipa[2:]
 
+        # Break the word apart by any R characters.
         words_parts = break_word_by_r(orig)
         ipa_parts = break_ipa_by_r(ipa)
         if len(words_parts) == len(ipa_parts):
@@ -205,6 +207,8 @@ def german_to_ipa(german: str) -> str:
                 ipa_parts[-1] = ipa_parts[-1][:-2] + "eɐ"
 
             for i, (word_part, ipa_part) in enumerate(zip(words_parts, ipa_parts)):
+                # Check for various ways a word piece ending with R
+                # can specifically end.
                 if "är" in word_part:
                     for key in ["er", "YR", "ɛr"]:
                         ipa_parts[i] = ipa_parts[i].replace(key, "ɛɐ")
@@ -239,10 +243,6 @@ def german_to_ipa(german: str) -> str:
             print(ipa_parts)
             return ""
 
-        if ipa == "hɪŋ":
-            results.append(ipa)
-            continue  # to next word.
-
         ipa = ipa.replace("hɪŋ", "hɪnɡ")
         ipa = ipa.replace("aʊsç", "aʊsʃ")
         ipa = ipa.replace("eʁd", "eɐd")
@@ -267,8 +267,13 @@ def german_to_ipa(german: str) -> str:
         ipa = re.sub(pattern, "los", ipa)
 
         ipa = ipa.replace("vɐdən", "veɐdən")
+        ipa = ipa.replace("ɛɐvaxz", "ɛɐvaks")
 
-        # Put the long vowel char back.
+        """
+
+
+        Put the long vowel char back.
+        """
         for char in ALWAYS_LONG_IPA:
             ipa = ipa.replace(char, f"{char}ː")
 
@@ -288,7 +293,11 @@ def german_to_ipa(german: str) -> str:
                 parts.append(ipa[last_i:])
             ipa = "".join(parts)
 
-        # Starting patterns. (term/replacement)
+        """
+
+
+        Starting patterns. (term/replacement)
+        """
         terms = [
             ("aʊfɛʁ", "aʊfʔɛɐ"),
             ("apɛʁ", "aːbɐ"),
@@ -336,8 +345,18 @@ def german_to_ipa(german: str) -> str:
                 ipa = "tsɛʁtifi" + ipa[10:]
             elif ipa.startswith("tsɛʁ"):
                 ipa = "tsɛɐ" + ipa[4:]
+        elif orig.startswith("hervor") and any(ipa.startswith(l) for l in ["hɐfoːɐ"]):
+            ipa = "hɛɐfoːɐ" + ipa[6:]
+        elif orig.startswith("der"):
+            for key in ["deːʁ", "dɛːʁ", "dɛʁ"]:
+                if ipa.startswith(key):
+                    ipa = "deːɐ" + ipa[len(key) :]
 
-        # Put the primary and secondary stresses back.
+        """
+
+
+        Put the primary and secondary stresses back.
+        """
         primary_indices = []
         secondary_indices = []
 
@@ -426,10 +445,26 @@ def german_to_ipa(german: str) -> str:
 
                 def move_indices_back(indices: list) -> list:
                     results = indices[:]
+                    first_vowel_index = next(
+                        (i for i, c in enumerate(ipa) if c in VOWELS), -1
+                    )
                     for i in range(len(results)):
                         while results[i] > 0 and (
-                            (ipa[results[i] - 1 : results[i] + 1] in ["ts", "pf", "dʒ"])
-                            or (ipa[results[i] - 1] == "ʃ" and ipa[results[i]] in "ʁtv")
+                            results[i] < first_vowel_index
+                            or (
+                                ipa[results[i] - 1] == "ʃ"
+                                and ipa[results[i]] in "ʁtvlp"
+                            )
+                            or (
+                                results[i] > 1
+                                and ipa[results[i] - 2] == "ʃ"
+                                and ipa[results[i] - 1 : results[i] + 1]
+                                in ["tʁ", "pl", "pʁ"]
+                            )
+                            or (
+                                ipa[results[i] - 1 : results[i] + 1]
+                                in ["ts", "pf", "dʒ"]
+                            )
                             or (
                                 ipa[results[i]] not in CONSONANTS + "h"
                                 and ipa[results[i] - 1] in CONSONANTS + "ʁh"
@@ -506,7 +541,8 @@ def german_to_ipa(german: str) -> str:
                                 + end[2:]
                             )
                         break
-
+        if ipa == "ʊnzʁə":
+            ipa = "ʊnzəʁə"
         results.append(ipa)
 
     # Restore punctuation.

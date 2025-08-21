@@ -74,3 +74,20 @@ def num_to_german(number: int):
         result += f"{prefix}und{suffix}"
 
     return result
+
+
+def replace_nums_with_german(german: str) -> str:
+    words = german.split(" ")
+    for word_i, word in enumerate(words):
+        if word[0].isdigit():
+            last_digit_i = len(word) - 1
+            for i in range(len(word) - 1, -1, -1):
+                if word[i].isdigit():
+                    last_digit_i = i
+                    break
+            num_str = word[0 : last_digit_i + 1]
+            german = num_to_german(int(num_str))
+            words[word_i] = german + word[last_digit_i + 1 :]
+    german = " ".join(words)
+
+    return german
