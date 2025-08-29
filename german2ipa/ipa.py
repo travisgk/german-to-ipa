@@ -14,6 +14,7 @@ pip install phonemizer regex espeakng
 
 import os
 import regex as re
+from _remove_hyphens import remove_hyphens
 from _nums import replace_nums_with_german
 
 if os.name == "nt":  # on Windows.
@@ -110,6 +111,8 @@ def german_to_ipa(german: str) -> str:
     # Convert any numbers into German words.
     german = replace_nums_with_german(german)
 
+    german, hyphen_word_indices = remove_hyphens(german, " ")
+
     ipa = phonemize(
         german,
         language="de",
@@ -139,12 +142,15 @@ def german_to_ipa(german: str) -> str:
         word_is_capitalized = orig[0].isupper()
         orig = orig.lower()
 
-        if orig == "deren":
-            results.append("deːʁən")
+        if orig == "unsere":
+            results.append("ʊnzəʁə")
             continue  # to next word.
+        elif orig == "deren":
+            results.append("deːʁən")
+            continue
         elif orig == "hing":
             results.append("hɪŋ")
-            continue  # to next word.
+            continue
 
         ipa = remove_parentheses(ipa)
         ipa = remove_punctuation(ipa)
@@ -351,6 +357,26 @@ def german_to_ipa(german: str) -> str:
             for key in ["deːʁ", "dɛːʁ", "dɛʁ"]:
                 if ipa.startswith(key):
                     ipa = "deːɐ" + ipa[len(key) :]
+                    break
+        elif orig.startswith("ernst") and ipa.startswith("ɛɐnst"):
+            ipa = "ɛʁnst" + ipa[5:]
+        elif orig.startswith("fuß") and ipa.startswith("fʊs"):
+            ipa = "fuːs" + ipa[3:]
+
+        if (
+            len(orig) > 5
+            and orig.endswith("haft")
+            and orig[-5] != "c"
+            and ipa[-4] != "h"
+            and ipa.endswith("aft")
+        ):
+            ipa = ipa[:-3] + "haft"
+        elif orig.endswith("tuch") and ipa.endswith("tʊx"):
+            ipa = ipa[:-3] + "tuːx"
+        elif orig.endswith("tücher") and ipa.endswith("tʏçɐ"):
+            ipa = ipa[:-4] + "tyçɐ"
+        elif orig.endswith("tüchern") and ipa.endswith("tʏçɐn"):
+            ipa = ipa[:-5] + "tyçɐn"
 
         """
 
@@ -493,6 +519,9 @@ def german_to_ipa(german: str) -> str:
                     ):
                         ipa = ipa[1:]
 
+        ipa = ipa.replace("ˈviːdeːˌɔ", "ˈviːdeoːˌ")
+        ipa = ipa.replace("viːdeːoː", "viːdeoː")
+
         if COLLAPSE_SCHWAS:
             if len(ipa) >= 3 and ipa[-2:] == "ən" and ipa[-3] in SILENCING_CONSONANTS:
                 ipa = ipa[:-2] + VOICELESS_SCHWA + SILENT_LETTER_N
@@ -541,8 +570,6 @@ def german_to_ipa(german: str) -> str:
                                 + end[2:]
                             )
                         break
-        if ipa == "ʊnzʁə":
-            ipa = "ʊnzəʁə"
         results.append(ipa)
 
     # Restore punctuation.
@@ -552,4 +579,15 @@ def german_to_ipa(german: str) -> str:
             if any(old.endswith(c) for c in PUNCTUATION):
                 results[i] = new + old[-1]
 
-    return " ".join(results)
+    result = ""
+    for i, r in enumerate(results):
+        result += r
+        if i < len(results) - 1:
+            if i in hyphen_word_indices:
+                if r[-1] == "ɐ" and results[i + 1][0] in VOWELS:
+                    result += "ʔ"
+
+            else:
+                result += " "
+
+    return result

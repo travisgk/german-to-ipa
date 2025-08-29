@@ -77,7 +77,7 @@ def num_to_german(number: int):
 
 
 def replace_nums_with_german(german: str) -> str:
-    words = german.split(" ")
+    words = german.strip().split(" ")
     for word_i, word in enumerate(words):
         if word[0].isdigit():
             last_digit_i = len(word) - 1
