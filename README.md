@@ -36,7 +36,7 @@ If you want it to have nouns styled with CSS depending on their grammatical gend
 }
 
 .die-noun, .plural-die-noun {
-	color: red;
+	color: rgb(255, 100, 0);
   font-size: 1.2em;
 }
 
