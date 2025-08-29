@@ -27,7 +27,7 @@ If you want it to have nouns styled with CSS depending on their grammatical gend
 
 <details>
   
-<summary>Which when stylized with this CSS file...</summary>
+<summary>Which when stylized with a CSS file similar to this...</summary>
   
 ```
 .der-noun, .plural-der-noun {
