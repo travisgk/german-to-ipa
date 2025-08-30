@@ -27,7 +27,7 @@ If you want it to have nouns styled with CSS depending on their grammatical gend
 
 <details>
   
-<summary>Which when stylized with a CSS file similar to this...</summary>
+<summary>Which when stylized with this CSS file...</summary>
   
 ```
 .der-noun, .plural-der-noun {
@@ -36,22 +36,38 @@ If you want it to have nouns styled with CSS depending on their grammatical gend
 }
 
 .die-noun, .plural-die-noun {
-	color: rgb(255, 100, 0);
+  color: rgb(255, 100, 0);
   font-size: 1.2em;
 }
 
 .das-noun, .plural-das-noun {
-	color: rgb(0, 75, 250);
+  color: rgb(0, 75, 250);
   font-size: 1.2em;
 }
 
 .verb-no-plural-noun {
-	color: rgb(150, 155, 250);
+  color: rgb(150, 155, 250);
   font-size: 1.5em;
 }
 
 .plural-der-noun, .plural-die-noun, .plural-das-noun {
-	font-style: italic;
+  font-style: italic;
+}
+
+* {
+  color: #00dd66;
+  font-size: 1em;
+  font-weight: bold;
+  font-family: Consolas;
+  word-spacing: 1.0em;
+  text-shadow: 
+    0px 0.1em 0.15em rgba(0, 0, 0, 1.0),
+    0px 0px 0.05em rgba(0, 0, 0, 1.0),
+    0px 0px 0.15em rgba(0, 0, 0, 1.0),
+    0px 0px 0.02em rgba(0, 0, 0, 1.0),
+    0px 0px 0.3em rgba(0, 0, 0, 1.0),
+    0px 0px 0.7em rgba(0, 0, 0, 1.0);
+  }
 }
 ```
 </details>
