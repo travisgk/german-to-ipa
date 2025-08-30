@@ -66,12 +66,15 @@ def num_to_german(number: int):
     if tens_digit <= 1:
         result += LOW_NUMS[number]
     else:
-        if ones_digit == 1:
-            prefix = "ein"
-        else:
-            prefix = LOW_NUMS[ones_digit]
         suffix = TENS[tens_digit]
-        result += f"{prefix}und{suffix}"
+        if ones_digit > 0:
+            if ones_digit == 1:
+                prefix = "ein"
+            else:
+                prefix = LOW_NUMS[ones_digit]
+            result += f"{prefix}und{suffix}"
+        else:
+            result += suffix
 
     return result
 

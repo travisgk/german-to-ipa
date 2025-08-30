@@ -2,7 +2,7 @@ import sys
 import pyperclip
 from ipa import PUNCTUATION, remove_punctuation, german_to_ipa
 from gender.gender import get_gender_of_word
-from _remove_hyphens import remove_hyphens
+from _remove_joining_chars import remove_joining_chars
 
 
 def process_sentence(german_text: str, color_by_gender: bool):
@@ -52,6 +52,7 @@ def process_sentence(german_text: str, color_by_gender: bool):
             "einen",
             "einem",
         ]
+        last_stripped_words = []
         for i, (word, ipa) in enumerate(zip(words, transcriptions)):
             word = word.strip()
             no_punctuation = remove_punctuation(word).strip()
@@ -60,36 +61,75 @@ def process_sentence(german_text: str, color_by_gender: bool):
                 and word[0].isupper()
                 and not no_punctuation.lower() in SKIPPED_TERMS
             ):  # noun.
-                genders, confidence = get_gender_of_word(no_punctuation)
-                if len(genders) == 0:
-                    if no_punctuation.endswith("n"):
+                last_words = " ".join(last_stripped_words[-5:])
+                genders, confidence = get_gender_of_word(
+                    no_punctuation,
+                    last_words,
+                    can_be_inf_verb=True,
+                )
+                is_infinitive = len(genders) > 0 and genders[0] == "v+"
+                if len(genders) == 0 or (len(genders) == 1 and is_infinitive):
+                    changed_end_n = False
+                    if (
+                        len(no_punctuation) > 1
+                        and no_punctuation.endswith("n")
+                        and no_punctuation[-2] in "ehlr"
+                    ):
                         new_genders, new_confidence = get_gender_of_word(
-                            no_punctuation[:-1]
+                            no_punctuation[:-1],
+                            last_words,
+                            can_be_inf_verb=False,  # b/c shortened
                         )
-                        if new_confidence >= 80:
+                        if new_confidence >= 80 and new_confidence >= confidence:
                             genders, confidence = new_genders, new_confidence
+                            changed_end_n = True
+
                     elif no_punctuation.endswith("es"):
                         new_genders, new_confidence = get_gender_of_word(
-                            no_punctuation[:-2]
+                            no_punctuation[:-2],
+                            last_words,
+                            can_be_inf_verb=False,  # b/c shortened
                         )
-                        if new_confidence >= 80 and any(
-                            g[:2] in ["sm", "sn"] for g in new_genders
+                        if (
+                            new_confidence >= 80
+                            and new_confidence >= confidence
+                            and any(g[:2] in ["sm", "sn"] for g in new_genders)
                         ):
                             genders, confidence = (
                                 new_genders,
                                 new_confidence,
                             )  # assumed genitiv.
-                    elif no_punctuation.endswith("s"):
+
+                    if no_punctuation.endswith("s") and len(genders) == 0:
                         new_genders, new_confidence = get_gender_of_word(
-                            no_punctuation[:-1]
+                            no_punctuation[:-1],
+                            last_words,
+                            can_be_inf_verb=(
+                                len(no_punctuation) > 1 and no_punctuation[-2] == "n"
+                            ),
                         )
-                        if new_confidence >= 80 and any(
-                            g[:2] in ["sm", "sn", "v+"] for g in new_genders
+                        if (
+                            new_confidence >= 80
+                            and new_confidence >= confidence
+                            and any(g[:2] in ["sm", "sn", "v+"] for g in new_genders)
                         ):
                             genders, confidence = (
                                 new_genders,
                                 new_confidence,
                             )  # assumed genitiv.
+
+                    if confidence < 90 and no_punctuation.endswith("en"):
+                        new_genders, new_confidence = get_gender_of_word(
+                            no_punctuation[:-2],
+                            last_words,
+                            can_be_inf_verb=False,
+                        )
+                        if new_confidence >= 80 and new_confidence >= confidence:
+                            genders, confidence = new_genders, new_confidence
+                            changed_end_n = True
+
+                    if changed_end_n and is_infinitive and "v+" not in genders:
+                        genders.append("v+")
 
                 is_plural = len(genders) > 0 and genders[0].startswith("p")
 
@@ -126,14 +166,19 @@ def process_sentence(german_text: str, color_by_gender: bool):
                 word_results.append(word)
                 ipa_results.append(ipa)
 
+            if any(word.endswith(c) for c in PUNCTUATION):
+                last_stripped_words = []
+            else:
+                last_stripped_words.append(no_punctuation)
+
         words_str = " ".join(word_results)
         ipa_str = " ".join(ipa_results)
-        words_str, _ = remove_hyphens(words_str, "")
+        words_str, _ = remove_joining_chars(words_str, "")
         return (words_str, ipa_str)
 
     """ Get rid of hyphens. """
 
-    german_text, _ = remove_hyphens(german_text, "")
+    german_text, _ = remove_joining_chars(german_text, "")
 
     return (german_text, full_ipa)
 

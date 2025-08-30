@@ -14,7 +14,7 @@ pip install phonemizer regex espeakng
 
 import os
 import regex as re
-from _remove_hyphens import remove_hyphens
+from _remove_joining_chars import remove_joining_chars
 from _nums import replace_nums_with_german
 
 if os.name == "nt":  # on Windows.
@@ -33,7 +33,7 @@ else:
 from phonemizer import phonemize
 
 
-PUNCTUATION = ".,:?;!\"'-[]‘„“«»…"
+PUNCTUATION = ".,,:?;!\"'-[]‘„“«»…"
 
 # matches Latin letters (any accents) OR characters from common IPA blocks/diacritics
 PAT = re.compile(
@@ -111,7 +111,7 @@ def german_to_ipa(german: str) -> str:
     # Convert any numbers into German words.
     german = replace_nums_with_german(german)
 
-    german, hyphen_word_indices = remove_hyphens(german, " ")
+    german, hyphen_word_indices = remove_joining_chars(german, " ")
 
     ipa = phonemize(
         german,
@@ -377,7 +377,14 @@ def german_to_ipa(german: str) -> str:
             ipa = ipa[:-4] + "tyçɐ"
         elif orig.endswith("tüchern") and ipa.endswith("tʏçɐn"):
             ipa = ipa[:-5] + "tyçɐn"
-
+        elif ipa[:-1].endswith("ɛɐk"):
+            ipa = ipa[:-4] + "ɛʁk" + ipa[-1]
+        elif ipa.endswith("ɪɡtən"):
+            ipa = ipa[:-5] + "ɪçtən"
+        elif ipa[:-1].endswith("ɪɡt"):
+            ipa = ipa[:-4] + "ɪçt" + ipa[-1]
+        elif ipa.endswith("ɪɡt"):
+            ipa = ipa[:-3] + "ɪçt"
         """
 
 
@@ -521,6 +528,8 @@ def german_to_ipa(german: str) -> str:
 
         ipa = ipa.replace("ˈviːdeːˌɔ", "ˈviːdeoːˌ")
         ipa = ipa.replace("viːdeːoː", "viːdeoː")
+        ipa = ipa.replace("taʊzʔɛnd", f"taʊz{VOICELESS_SCHWA}{SILENT_LETTER_N}d")
+        ipa = ipa.replace("vɛɐm", "vɛʁm")
 
         if COLLAPSE_SCHWAS:
             if len(ipa) >= 3 and ipa[-2:] == "ən" and ipa[-3] in SILENCING_CONSONANTS:

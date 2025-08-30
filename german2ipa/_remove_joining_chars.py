@@ -1,5 +1,7 @@
-def remove_hyphens(german_text: str, replacement: str = ""):
-    HYPHEN_CHAR = "+"
+from gender.get_genders import NOUN_JOINING_CHAR
+
+
+def remove_joining_chars(german_text: str, replacement: str = ""):
     hyphen_indices = []
     hyphen_word_indices = []
     inside_html = False
@@ -26,7 +28,7 @@ def remove_hyphens(german_text: str, replacement: str = ""):
             current_c = german_text[i]
             next_c = german_text[i + 1]
 
-            if prev_c.isalpha() and current_c == HYPHEN_CHAR and next_c.isalpha():
+            if prev_c.isalpha() and current_c == NOUN_JOINING_CHAR and next_c.isalpha():
                 hyphen_indices.append(i)
 
         i += 1
